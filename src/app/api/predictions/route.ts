@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSystemStatus } from "@/lib/prediction-engine";
 import { getServiceClient } from "@/lib/supabase";
+import { calculateConfidenceInterval } from "@/lib/statistical-utils";
+import { explainPrediction } from "@/lib/explainable-ai";
 
 export const dynamic = "force-dynamic";
 
@@ -36,5 +38,26 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json(status);
+  // Add confidence intervals for risk scores
+  const riskScores = status.predictions.map(p => p.risk_score);
+  const riskCI = calculateConfidenceInterval(riskScores, 0.95);
+
+  // Add feature contributions for each prediction
+  const enhancedPredictions = status.predictions.map(p => ({
+    ...p,
+    feature_contributions: explainPrediction(p).features,
+  }));
+
+  return NextResponse.json({
+    ...status,
+    predictions: enhancedPredictions,
+    confidence: {
+      risk_mean: riskCI.mean,
+      risk_lower: riskCI.lower,
+      risk_upper: riskCI.upper,
+      standard_error: riskCI.standardError,
+      confidence_level: riskCI.confidenceLevel,
+      sample_size: riskCI.sampleSize,
+    },
+  });
 }

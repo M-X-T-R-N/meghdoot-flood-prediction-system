@@ -20,6 +20,12 @@ import {
 } from "recharts";
 
 const FloodMap = dynamic(() => import("@/components/FloodMap"), { ssr: false });
+const ClimateSimulator = dynamic(() => import("@/components/research/ClimateSimulator"));
+const VulnerabilityIndex = dynamic(() => import("@/components/research/VulnerabilityIndex"));
+const ModelComparison = dynamic(() => import("@/components/research/ModelComparison"));
+const ConfidenceBand = dynamic(() => import("@/components/research/ConfidenceBand"));
+const ExplainableAI = dynamic(() => import("@/components/research/ExplainableAI"));
+const EarlyWarningSimulation = dynamic(() => import("@/components/research/EarlyWarningSimulation"));
 
 // Types
 interface Prediction {
@@ -108,7 +114,7 @@ interface ValidationData {
   avg_lead_time_hours: number;
 }
 
-type TabKey = "map" | "charts" | "alerts" | "subscribers" | "validation";
+type TabKey = "map" | "charts" | "alerts" | "subscribers" | "validation" | "climate" | "vulnerability" | "models" | "confidence" | "explainability" | "warning-sim";
 
 const RISK_COLORS: Record<string, string> = {
   Normal: "#22c55e",
@@ -117,12 +123,18 @@ const RISK_COLORS: Record<string, string> = {
   Severe: "#ef4444",
 };
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
+const TABS: { key: TabKey; label: string; icon: string; group?: string }[] = [
   { key: "map", label: "Flood Map", icon: "M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" },
   { key: "charts", label: "Analytics", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
   { key: "alerts", label: "SMS Alerts", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { key: "subscribers", label: "Subscribers", icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" },
-  { key: "validation", label: "Research", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
+  { key: "validation", label: "Validation", icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" },
+  { key: "climate", label: "Climate Sim", icon: "M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z", group: "research" },
+  { key: "vulnerability", label: "Vulnerability", icon: "M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z", group: "research" },
+  { key: "models", label: "Model Compare", icon: "M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5", group: "research" },
+  { key: "confidence", label: "Confidence", icon: "M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z", group: "research" },
+  { key: "explainability", label: "Explainable AI", icon: "M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z", group: "research" },
+  { key: "warning-sim", label: "Alert Sim", icon: "M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0", group: "research" },
 ];
 
 export default function AdminDashboard() {
@@ -245,13 +257,13 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <Image src="/logo.png" alt="Meghdoot" width={64} height={64} className="mx-auto mb-4" />
+      <div className="flex h-screen items-center justify-center animated-gradient-bg">
+        <div className="text-center glass-card rounded-3xl p-12">
+          <Image src="/logo.png" alt="Meghdoot" width={64} height={64} className="mx-auto mb-4 animate-float" />
           <div className="mb-2 text-2xl font-bold meghdoot-gradient-text">Meghdoot Admin</div>
           <div className="text-slate-500">Loading flood prediction system...</div>
           <div className="mt-4 h-1.5 w-48 mx-auto overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full animate-pulse rounded-full meghdoot-gradient" style={{ width: "60%" }} />
+            <div className="h-full rounded-full meghdoot-gradient shimmer" style={{ width: "80%" }} />
           </div>
         </div>
       </div>
@@ -259,83 +271,91 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? "w-60" : "w-16"} flex flex-col border-r border-slate-200 bg-white transition-all duration-200`}>
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-3 border-b border-slate-100 px-4">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="flex items-center gap-3 text-left">
-            <Image src="/logo.png" alt="Meghdoot" width={36} height={36} className="rounded-xl" />
-            {sidebarOpen && (
-              <div>
-                <div className="text-lg font-bold meghdoot-gradient-text leading-tight">Meghdoot</div>
-                <div className="text-[10px] text-slate-400 font-medium">Admin Panel</div>
-              </div>
-            )}
-          </button>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 space-y-1 p-3">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
-                activeTab === tab.key
-                  ? "meghdoot-gradient text-white shadow-md shadow-blue-500/20"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
-              }`}
-            >
-              <svg className="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
-              </svg>
-              {sidebarOpen && <span>{tab.label}</span>}
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
+        {/* Sidebar */}
+        <aside className={`${sidebarOpen ? "w-60" : "w-16"} flex flex-col border-r border-white/40 bg-white/70 backdrop-blur-xl transition-all duration-300`}>
+          {/* Logo */}
+          <div className="flex h-16 items-center gap-3 border-b border-slate-100/50 px-4">
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="flex items-center gap-3 text-left group">
+              <Image src="/logo.png" alt="Meghdoot" width={36} height={36} className="rounded-xl transition-transform duration-300 group-hover:scale-110" />
+              {sidebarOpen && (
+                <div>
+                  <div className="text-lg font-bold meghdoot-gradient-text leading-tight">Meghdoot</div>
+                  <div className="text-[10px] text-slate-400 font-medium tracking-wide">Research Dashboard</div>
+                </div>
+              )}
             </button>
-          ))}
-        </nav>
-
-        {/* Data source badge */}
-        {sidebarOpen && (
-          <div className="border-t border-slate-100 p-3">
-            <div className="rounded-xl meghdoot-gradient-soft p-3">
-              <div className="text-xs font-semibold text-slate-700">Simulated Real-Time</div>
-              <div className="mt-0.5 text-[10px] text-slate-500">Based on Sylhet historical patterns</div>
-            </div>
-            <a href="/" className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-slate-500 hover:bg-slate-50 transition-colors">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-              Back to Landing Page
-            </a>
           </div>
-        )}
-      </aside>
+
+          {/* Nav */}
+          <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+            {TABS.map((tab, i) => (
+              <div key={tab.key}>
+                {tab.group === "research" && (i === 0 || TABS[i - 1]?.group !== "research") && sidebarOpen && (
+                  <div className="mb-2 mt-4 px-3 text-[9px] font-bold uppercase tracking-widest text-blue-400/70">Research Lab</div>
+                )}
+                {tab.group === "research" && (i === 0 || TABS[i - 1]?.group !== "research") && !sidebarOpen && (
+                  <div className="my-3 mx-auto h-px w-8 bg-gradient-to-r from-transparent via-blue-200 to-transparent" />
+                )}
+                <button
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                    activeTab === tab.key
+                      ? "meghdoot-gradient text-white shadow-lg shadow-blue-500/25 scale-[1.02]"
+                      : "text-slate-500 hover:bg-white/80 hover:text-slate-700 hover:shadow-sm"
+                  }`}
+                >
+                  <svg className="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={tab.icon} />
+                  </svg>
+                  {sidebarOpen && <span className="truncate">{tab.label}</span>}
+                </button>
+              </div>
+            ))}
+          </nav>
+
+          {/* Data source badge */}
+          {sidebarOpen && (
+            <div className="border-t border-slate-100/50 p-3">
+              <div className="rounded-xl bg-gradient-to-br from-blue-50 via-cyan-50 to-purple-50 p-3 border border-blue-100/50">
+                <div className="text-xs font-semibold text-slate-700">Simulated Real-Time</div>
+                <div className="mt-0.5 text-[10px] text-slate-500">Based on Sylhet historical patterns</div>
+              </div>
+              <a href="/" className="mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-slate-400 hover:bg-white/60 hover:text-slate-600 transition-all duration-200">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                Back to Landing Page
+              </a>
+            </div>
+          )}
+        </aside>
 
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         {/* Top bar */}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-slate-100 bg-white/90 px-6 backdrop-blur-md">
-          <div>
-            <h1 className="text-base font-semibold text-slate-800">
-              {TABS.find((t) => t.key === activeTab)?.label}
-            </h1>
-            <p className="text-xs text-slate-400">
-              Sylhet Division, Bangladesh
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            {summary && (
-              <div className="flex items-center gap-2 text-xs">
-                <StatusPill label="Severe" count={summary.severe_zones} color="red" />
-                <StatusPill label="Warning" count={summary.warning_zones} color="orange" />
-                <StatusPill label="Watch" count={summary.watch_zones} color="yellow" />
-                <StatusPill label="Normal" count={summary.normal_zones} color="green" />
-              </div>
-            )}
-            <div className="text-[10px] text-slate-400">
-              Updated: {summary ? new Date(summary.last_updated).toLocaleTimeString() : "--"}
+          <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-white/40 bg-white/60 px-6 backdrop-blur-xl">
+            <div>
+              <h1 className="text-base font-semibold text-slate-800 tracking-tight">
+                {TABS.find((t) => t.key === activeTab)?.label}
+              </h1>
+              <p className="text-xs text-slate-400">
+                Sylhet Division, Bangladesh
+              </p>
             </div>
-          </div>
-        </header>
+            <div className="flex items-center gap-3">
+              {summary && (
+                <div className="flex items-center gap-2 text-xs">
+                  <StatusPill label="Severe" count={summary.severe_zones} color="red" />
+                  <StatusPill label="Warning" count={summary.warning_zones} color="orange" />
+                  <StatusPill label="Watch" count={summary.watch_zones} color="yellow" />
+                  <StatusPill label="Normal" count={summary.normal_zones} color="green" />
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Updated: {summary ? new Date(summary.last_updated).toLocaleTimeString() : "--"}
+              </div>
+            </div>
+          </header>
 
         <div className="p-6">
           {/* Map Tab */}
@@ -489,8 +509,8 @@ export default function AdminDashboard() {
               </div>
 
               {/* SMS Log */}
-              <div className="rounded-2xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-100 px-5 py-4">
+              <div className="glass-card rounded-2xl">
+                <div className="border-b border-slate-100/50 px-5 py-4">
                   <h3 className="text-sm font-semibold text-slate-700">SMS Log History</h3>
                 </div>
                 {smsLog.length === 0 ? (
@@ -643,11 +663,28 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-        </div>
+            {/* Climate Simulator Tab */}
+            {activeTab === "climate" && <ClimateSimulator />}
 
-        <footer className="border-t border-slate-100 bg-white p-4 text-center text-[10px] text-slate-400">
-          This system supports early awareness and is not an official government warning. | Meghdoot - Flood Prediction System for Sylhet, Bangladesh
-        </footer>
+            {/* Vulnerability Index Tab */}
+            {activeTab === "vulnerability" && <VulnerabilityIndex predictions={predictions} />}
+
+            {/* Model Comparison Tab */}
+            {activeTab === "models" && <ModelComparison />}
+
+            {/* Confidence Band Tab */}
+            {activeTab === "confidence" && <ConfidenceBand rainfall={rainfall} />}
+
+            {/* Explainable AI Tab */}
+            {activeTab === "explainability" && <ExplainableAI predictions={predictions} />}
+
+            {/* Early Warning Simulation Tab */}
+            {activeTab === "warning-sim" && <EarlyWarningSimulation predictions={predictions} />}
+          </div>
+
+          <footer className="border-t border-slate-100 bg-white p-4 text-center text-[10px] text-slate-400">
+            This system supports early awareness and is not an official government warning. | Meghdoot - Flood Prediction System for Sylhet, Bangladesh
+          </footer>
       </main>
     </div>
   );
@@ -670,21 +707,21 @@ function StatusPill({ label, count, color }: { label: string; count: number; col
 }
 
 function SummaryCard({ label, value, suffix, color }: { label: string; value: number | string; suffix: string; color: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 transition-shadow hover:shadow-md">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1.5 flex items-baseline gap-0.5">
-        <span className="text-2xl font-bold" style={{ color }}>{typeof value === "number" ? value.toLocaleString() : value}</span>
-        <span className="text-xs text-slate-400">{suffix}</span>
+    return (
+      <div className="group rounded-2xl border border-white/40 bg-white/70 backdrop-blur-sm p-5 transition-all duration-300 hover:bg-white/90 hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-0.5">
+        <div className="text-xs text-slate-500 font-medium">{label}</div>
+        <div className="mt-1.5 flex items-baseline gap-0.5">
+          <span className="text-2xl font-bold tabular-nums animate-count-up" style={{ color }}>{typeof value === "number" ? value.toLocaleString() : value}</span>
+          <span className="text-xs text-slate-400">{suffix}</span>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
 function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6">
-      <h3 className="text-sm font-semibold text-slate-700">{title}</h3>
+    <div className="rounded-2xl border border-white/40 bg-white/70 backdrop-blur-sm p-6 transition-all duration-300 hover:bg-white/80 hover:shadow-lg hover:shadow-slate-200/30">
+      <h3 className="text-sm font-semibold text-slate-700 tracking-tight">{title}</h3>
       <p className="mb-4 text-xs text-slate-400">{subtitle}</p>
       {children}
     </div>
